@@ -1,0 +1,44 @@
+[project]
+name = "vlm-pipeline"
+version = "0.1.0"
+description = "A vision-language model fine-tuning pipeline."
+authors = [
+    { name = "Alexander Braafladt" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    # Core ML
+    "torch>=2.2.0",
+    "transformers>=4.44.0",
+    "accelerate>=0.33.0",
+    "peft>=0.11.0",
+
+    # Data
+    "datasets>=3.0.0",
+    "pillow>=10.0.0",
+
+    # Metrics
+    "evaluate>=0.4.2",
+    "sacrebleu>=2.4.0",
+
+    # Config
+    "pyyaml>=6.0.1",
+
+    # Utilities
+    "tqdm>=4.66.0",
+    "numpy>=1.26.0",
+]
+
+[tool.uv]
+# Optional: speed up dependency resolution
+index-url = "https://pypi.org/simple"
+
+# Optional: add CUDA wheels automatically if using torch on GPU machine.
+# Example for CUDA 12.1 (depending on remote machine's GPU setup)
+# extra-index-url = "https://download.pytorch.org/whl/cu121"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
