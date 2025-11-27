@@ -1,15 +1,14 @@
 import argparse
 import yaml
-import os
 
 from src.utils.paths import get_config_path
 from src.utils.seed import set_global_seed
 from src.data.flickr8k import load_flickr8k
-
 from src.eval.baseline_eval import run_baseline_evaluation
+from src.training.trainer import run_lora_training
 
 # ===== MOCK MODE SWITCH =====
-USE_MOCK = True  # <--- SAFE FOR WSL LOCAL DEV
+USE_MOCK = True  # <--- set to False on GPU box
 # ============================
 
 if USE_MOCK:
@@ -40,19 +39,15 @@ def main():
     if args.mode == "baseline":
         print("[main] Running baseline evaluation...")
 
-        # Load validation dataset
         ds = load_flickr8k(
             max_train_samples=cfg["dataset"].get("max_train_samples"),
             max_val_samples=cfg["dataset"].get("max_val_samples"),
             max_test_samples=cfg["dataset"].get("max_test_samples"),
         )
-
         ds_val = ds["validation"]
 
-        # Init model (mock or real)
         model = ModelClass(cfg)
 
-        # Run eval
         run_baseline_evaluation(
             model=model,
             ds_val=ds_val,
@@ -61,10 +56,16 @@ def main():
         )
 
     elif args.mode == "train":
-        print("[main] TRAIN MODE NOT IMPLEMENTED YET")
+        if USE_MOCK:
+            print("[main] TRAIN requested but USE_MOCK=True. Refusing to run heavy training on this machine.")
+            print("       Set USE_MOCK=False and run on your GPU box instead.")
+            return
+
+        print("[main] Running LoRA training...")
+        run_lora_training(cfg)
 
     elif args.mode == "eval":
-        print("[main] EVAL MODE NOT IMPLEMENTED YET")
+        print("[main] Eval mode is not implemented yet.")
 
 
 if __name__ == "__main__":
