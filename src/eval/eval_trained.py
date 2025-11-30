@@ -57,3 +57,9 @@ def evaluate_lora_checkpoint(cfg, checkpoint_path, output_jsonl="outputs/lora_pr
 
     print(f"[eval_trained] BLEU: {bleu_score['bleu']:.4f}")
     print("[eval_trained] Results saved in outputs/")
+
+    try:
+        import wandb
+        wandb.log({"lora_bleu": bleu_score["bleu"]})
+    except ImportError:
+        pass

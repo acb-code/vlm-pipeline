@@ -66,4 +66,11 @@ def run_baseline_evaluation(
     print(f"BLEU: {bleu_score['bleu']:.4f}")
     print("===================================")
 
+    try:
+        import wandb
+        wandb.log({"baseline_bleu": bleu_score["bleu"]})
+    except ImportError:
+        pass
+
+
     return bleu_score

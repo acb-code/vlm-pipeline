@@ -62,3 +62,9 @@ generation:
   prompt_template: |
     <image>
     You are an image captioning model. Describe this image in one concise sentence.
+
+wandb:
+  enabled: true
+  project: "vlm-training"
+  entity: null        # or your username
+  run_name: "qwen3vl_lora"

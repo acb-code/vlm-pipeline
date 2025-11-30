@@ -7,6 +7,8 @@ from src.data.flickr8k import load_flickr8k
 from src.eval.baseline_eval import run_baseline_evaluation
 from src.training.trainer import run_lora_training
 
+import wandb
+
 # ===== MOCK MODE SWITCH =====
 import os
 USE_MOCK = os.environ.get("USE_MOCK", "True").lower() == "true"
@@ -36,6 +38,17 @@ def main():
     cfg = load_config(args.config)
 
     set_global_seed(cfg["training"].get("seed", 42))
+
+    # W&B initialization
+    if cfg.get("wandb", {}).get("enabled", False) and not USE_MOCK:
+        wandb.init(
+            project=cfg["wandb"]["project"],
+            entity=cfg["wandb"].get("entity"),
+            name=cfg["wandb"]["run_name"]
+        )
+    else:
+        print("[wandb] Disabled (mock mode or config)")
+
 
     if args.mode == "baseline":
         print("[main] Running baseline evaluation...")
