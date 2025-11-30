@@ -8,7 +8,8 @@ from src.eval.baseline_eval import run_baseline_evaluation
 from src.training.trainer import run_lora_training
 
 # ===== MOCK MODE SWITCH =====
-USE_MOCK = True  # <--- set to False on GPU box
+import os
+USE_MOCK = os.environ.get("USE_MOCK", "True").lower() == "true"
 # ============================
 
 if USE_MOCK:
@@ -66,6 +67,16 @@ def main():
 
     elif args.mode == "eval":
         print("[main] Eval mode is not implemented yet.")
+    
+    elif args.mode == "eval_trained":
+        from src.eval.eval_trained import evaluate_lora_checkpoint
+
+        if USE_MOCK:
+            print("[main] Cannot evaluate trained model in mock mode.")
+            return
+
+        checkpoint = "outputs/checkpoints/last"  # or your chosen path
+        evaluate_lora_checkpoint(cfg, checkpoint)
 
 
 if __name__ == "__main__":
