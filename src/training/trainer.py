@@ -167,25 +167,26 @@ def run_lora_training(cfg: Dict[str, Any]):
     train_cfg = cfg["training"]
 
     training_args = TrainingArguments(
-        output_dir=train_cfg["output_dir"],
-        num_train_epochs=train_cfg["num_train_epochs"],
-        per_device_train_batch_size=train_cfg["per_device_train_batch_size"],
-        per_device_eval_batch_size=train_cfg["per_device_eval_batch_size"],
-        gradient_accumulation_steps=train_cfg["gradient_accumulation_steps"],
-        learning_rate=train_cfg["learning_rate"],
-        weight_decay=train_cfg["weight_decay"],
-        max_grad_norm=train_cfg["max_grad_norm"],
-        warmup_ratio=train_cfg["warmup_ratio"],
-        logging_steps=train_cfg["logging_steps"],
-        evaluation_strategy="steps",
-        eval_steps=train_cfg["eval_steps"],
-        save_steps=train_cfg["save_steps"],
-        save_total_limit=train_cfg["save_total_limit"],
-        fp16=train_cfg.get("fp16", False),
-        bf16=train_cfg.get("bf16", False),
-        remove_unused_columns=False,  # crucial for vision inputs
-        report_to=["wandb"] if cfg.get("wandb", {}).get("enabled", False) and not USE_MOCK else [],
-    )
+    output_dir=train_cfg["output_dir"],
+    num_train_epochs=int(train_cfg["num_train_epochs"]),
+    per_device_train_batch_size=int(train_cfg["per_device_train_batch_size"]),
+    per_device_eval_batch_size=int(train_cfg["per_device_eval_batch_size"]),
+    gradient_accumulation_steps=int(train_cfg["gradient_accumulation_steps"]),
+    learning_rate=float(train_cfg["learning_rate"]),
+    weight_decay=float(train_cfg["weight_decay"]),
+    max_grad_norm=float(train_cfg["max_grad_norm"]),
+    warmup_ratio=float(train_cfg["warmup_ratio"]),
+    logging_steps=int(train_cfg["logging_steps"]),
+    eval_strategy="steps",
+    eval_steps=int(train_cfg["eval_steps"]),
+    save_strategy="steps",
+    save_steps=int(train_cfg["save_steps"]),
+    save_total_limit=int(train_cfg["save_total_limit"]),
+    fp16=bool(train_cfg.get("fp16", False)),
+    bf16=bool(train_cfg.get("bf16", False)),
+    remove_unused_columns=False,
+    report_to=["wandb"] if cfg.get("wandb", {}).get("enabled", False) and not USE_MOCK else [],
+)
 
     trainer = Trainer(
         model=model,
