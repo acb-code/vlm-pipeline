@@ -5,6 +5,7 @@ from peft import PeftModel
 
 from src.data.flickr8k import load_flickr8k
 from src.models.qwen_vl_loader import Qwen3VLLoader
+from src.utils.wandb_utils import wandb_safe_log
 
 
 def evaluate_lora_checkpoint(cfg, checkpoint_path, output_jsonl="outputs/lora_predictions.jsonl"):
@@ -58,8 +59,4 @@ def evaluate_lora_checkpoint(cfg, checkpoint_path, output_jsonl="outputs/lora_pr
     print(f"[eval_trained] BLEU: {bleu_score['bleu']:.4f}")
     print("[eval_trained] Results saved in outputs/")
 
-    try:
-        import wandb
-        wandb.log({"lora_bleu": bleu_score["bleu"]})
-    except ImportError:
-        pass
+    wandb_safe_log({"baseline_bleu": bleu_score["bleu"]})

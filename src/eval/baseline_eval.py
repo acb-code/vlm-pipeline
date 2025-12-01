@@ -4,6 +4,7 @@ from typing import Dict, Any
 from tqdm import tqdm
 from datasets import Dataset
 from evaluate import load as load_metric
+from src.utils.wandb_utils import wandb_safe_log
 
 
 def run_baseline_evaluation(
@@ -66,11 +67,7 @@ def run_baseline_evaluation(
     print(f"BLEU: {bleu_score['bleu']:.4f}")
     print("===================================")
 
-    try:
-        import wandb
-        wandb.log({"baseline_bleu": bleu_score["bleu"]})
-    except ImportError:
-        pass
+    wandb_safe_log({"baseline_bleu": bleu_score["bleu"]})
 
 
     return bleu_score

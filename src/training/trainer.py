@@ -119,7 +119,6 @@ def run_lora_training(cfg: Dict[str, Any]):
         save_total_limit=train_cfg["save_total_limit"],
         fp16=train_cfg.get("fp16", False),
         bf16=train_cfg.get("bf16", False),
-        report_to=[],  # add "wandb" if you want later
         remove_unused_columns=False,  # crucial for vision inputs
         report_to=["wandb"] if cfg.get("wandb", {}).get("enabled", False) and not USE_MOCK else [],
 
