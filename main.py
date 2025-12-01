@@ -79,17 +79,18 @@ def main():
         run_lora_training(cfg)
 
     elif args.mode == "eval":
-        print("[main] Eval mode is not implemented yet.")
-    
-    elif args.mode == "eval_trained":
         from src.eval.eval_trained import evaluate_lora_checkpoint
 
         if USE_MOCK:
-            print("[main] Cannot evaluate trained model in mock mode.")
+            print("[main] Cannot evaluate trained model in mock mode (USE_MOCK=True).")
+            print("       Set USE_MOCK=False on the GPU box.")
             return
 
-        checkpoint = "outputs/checkpoints/last"  # or your chosen path
+        # Use the same directory where training saved the LoRA adapter
+        checkpoint = cfg["training"]["output_dir"]
+        print(f"[main] Evaluating trained LoRA adapter at: {checkpoint}")
         evaluate_lora_checkpoint(cfg, checkpoint)
+    
 
 
 if __name__ == "__main__":

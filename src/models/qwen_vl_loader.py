@@ -3,11 +3,14 @@ from typing import Dict, Any, Optional
 from PIL import Image
 import torch
 from transformers import Qwen3VLForConditionalGeneration, AutoProcessor
+from peft import PeftModel
 
 
 class Qwen3VLLoader:
     """
     Load Qwen3-VL-8B-Instruct with flexible device/dtype settings.
+
+    Optionally load a LoRA adapter from `lora_adapter_dir`.
 
     Provides:
       - model
@@ -15,7 +18,7 @@ class Qwen3VLLoader:
       - generate_caption() for image → text
     """
 
-    def __init__(self, cfg: Dict[str, Any]):
+    def __init__(self, cfg: Dict[str, Any], lora_adapter_dir: Optional[str] = None):
         model_name = cfg["model"]["name"]
         revision = cfg["model"].get("revision", "main")
         cache_dir = cfg["model"].get("cache_dir", None)
@@ -42,16 +45,23 @@ class Qwen3VLLoader:
             trust_remote_code=True,
         )
 
-        # Load model
-        self.model = Qwen3VLForConditionalGeneration.from_pretrained(
+        # Load base model
+        base_model = Qwen3VLForConditionalGeneration.from_pretrained(
             model_name,
             revision=revision,
             cache_dir=cache_dir,
             torch_dtype=torch_dtype,
-            device_map=device,           # "cuda", "auto", etc.
+            device_map=device,           # "auto" or explicit device
             low_cpu_mem_usage=True,
             trust_remote_code=True,
         )
+
+        # Optionally load LoRA adapter
+        if lora_adapter_dir is not None:
+            print(f"[Qwen3VLLoader] Loading LoRA adapter from: {lora_adapter_dir}")
+            self.model = PeftModel.from_pretrained(base_model, lora_adapter_dir)
+        else:
+            self.model = base_model
 
         self.model.eval()  # inference mode
         self.generation_cfg = cfg.get("generation", {})
