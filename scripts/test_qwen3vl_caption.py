@@ -12,7 +12,7 @@ from src.data.flickr8k import load_flickr8k
 
 
 # ====== Toggle between real and mock models ======
-USE_MOCK = True  # <---- Change this to False ONLY on a GPU machine
+USE_MOCK = False  # <---- Change this to False ONLY on a GPU machine
 # ==================================================
 
 if USE_MOCK:

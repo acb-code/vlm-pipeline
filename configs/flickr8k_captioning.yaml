@@ -1,21 +1,20 @@
 task_name: "flickr8k_captioning"
 
 model:
-  # We'll confirm the exact Qwen-VL model name later when we add model code; this is a placeholder.
   name: "Qwen/Qwen3-VL-8B-Instruct"
   revision: "main"
   cache_dir: ".cache/huggingface"
-  torch_dtype: "bfloat16"   # or "float16" depending on GPU
-  device: "cuda"            # overridden to "cpu" when testing locally if needed
+  torch_dtype: "bfloat16"   # or "float16" if bf16 causes issues
+  device: "cuda"
 
 dataset:
-  hf_name: "flickr8k"
+  # We actually use jxie/flickr8k in load_flickr8k()
+  hf_name: "jxie/flickr8k"
   split_train: "train"
   split_val: "validation"
   split_test: "test"
   image_column: "image"
-  text_column: "text"
-  # For quick experiments / debugging
+  text_column: "caption_0"   # not used directly, but more honest
   max_train_samples: null    # null == use all
   max_val_samples: 1000
   max_test_samples: 1000
@@ -59,9 +58,8 @@ generation:
   temperature: 0.7
   top_p: 0.9
   num_beams: 1
-  prompt_template: |
-    <image>
-    You are an image captioning model. Describe this image in one concise sentence.
+  # IMPORTANT: no <image> here; image is handled via {"type": "image"} in messages
+  prompt_template: "Describe this image in one concise, informative sentence."
 
 wandb:
   enabled: true

@@ -1,5 +1,6 @@
 from typing import Dict, Any, List
 from dataclasses import dataclass
+import os
 
 import torch
 from torch.utils.data import Dataset
@@ -9,17 +10,23 @@ from src.data.flickr8k import load_flickr8k
 from src.models.qwen_vl_loader import Qwen3VLLoader
 from src.models.lora_setup import apply_lora
 
+USE_MOCK = os.environ.get("USE_MOCK", "True").lower() == "true"
+
 
 @dataclass
 class VLMDataCollator:
     """
-    Data collator for vision-language captioning.
+    Data collator for vision-language captioning with Qwen3-VL chat format.
 
-    - Takes raw HF samples with:
-        image, caption_0..caption_4
-    - Builds full text = prompt_template + "\n" + chosen caption
-    - Uses processor to create model inputs
-    - Masks out prompt tokens in labels so loss is only on caption.
+    For each example:
+      - User: [image] + prompt_template (e.g. "Describe this image...")
+      - Assistant: ground-truth caption (caption_0)
+
+    We:
+      - Build chat messages (user + assistant)
+      - Use apply_chat_template to get the text with image placeholders
+      - Encode via processor(text, images)
+      - Compute labels so that ONLY the caption tokens are supervised.
     """
 
     processor: Any
@@ -27,43 +34,100 @@ class VLMDataCollator:
 
     def __call__(self, batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
         images = [ex["image"] for ex in batch]
-        # For now, just use caption_0 as the target caption
-        captions = [ex["caption_0"] for ex in batch]
+        captions = [ex["caption_0"] for ex in batch]  # training target
+        user_texts = [self.prompt_template.strip()] * len(batch)
 
-        prompts = [self.prompt_template.strip()] * len(batch)
-        full_texts = [p + "\n" + c for p, c in zip(prompts, captions)]
+        text_full_list: List[str] = []
 
-        # Processor will handle text + images jointly
-        inputs = self.processor(
-            text=full_texts,
+        # 1) Build full chat messages (user + assistant) and text
+        for user_text, caption in zip(user_texts, captions):
+            messages_user = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image"},
+                        {"type": "text", "text": user_text},
+                    ],
+                }
+            ]
+
+            messages_full = messages_user + [
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "text", "text": caption},
+                    ],
+                }
+            ]
+
+            text_full = self.processor.apply_chat_template(
+                messages_full,
+                tokenize=False,
+                add_generation_prompt=False,
+            )
+            text_full_list.append(text_full)
+
+        # 2) Encode full conversations + images
+        enc = self.processor(
+            text=text_full_list,
             images=images,
             return_tensors="pt",
             padding=True,
         )
 
-        input_ids = inputs["input_ids"]
-        attention_mask = inputs["attention_mask"]
-
-        # Compute prompt lengths in tokens, using same tokenizer
+        input_ids = enc["input_ids"]           # [B, T]
+        attention_mask = enc["attention_mask"] # [B, T]
         tokenizer = self.processor.tokenizer
-        prompt_tokenized = tokenizer(
-            prompts,
-            add_special_tokens=False,
-            padding=True,
-            return_tensors="pt",
-        )
-        prompt_lens = prompt_tokenized["input_ids"].ne(tokenizer.pad_token_id).sum(dim=1)
 
-        # Labels: copy input_ids then mask out prompt tokens
-        labels = input_ids.clone()
-        for i, prompt_len in enumerate(prompt_lens):
-            # Mask prompt part
-            labels[i, : prompt_len] = -100
+        # 3) Initialize labels = -100 everywhere
+        labels = torch.full_like(input_ids, -100)
 
-        inputs["labels"] = labels
-        inputs["attention_mask"] = attention_mask
+        # Helper: find subsequence `subseq` inside `seq` (both are lists of ints)
+        def find_subsequence(seq: List[int], subseq: List[int]):
+            n, m = len(seq), len(subseq)
+            if m == 0 or m > n:
+                return None
+            for start in range(n - m + 1):
+                if seq[start:start + m] == subseq:
+                    return start
+            return None
 
-        return inputs
+        # 4) For each example, locate caption tokens in the full sequence
+        for i, caption in enumerate(captions):
+            # Only look at non-padded part
+            valid_len = attention_mask[i].sum().item()
+            full_ids = input_ids[i, :valid_len].tolist()
+
+            # Tokenize caption as a plain sequence (no extra specials)
+            tok = tokenizer(
+                caption,
+                add_special_tokens=False,
+                return_tensors=None,
+            )
+            raw_ids = tok["input_ids"]
+
+            # Handle both shapes: List[int] or List[List[int]]
+            if isinstance(raw_ids[0], int):
+                cap_ids = raw_ids  # already a flat list of ints
+            else:
+                cap_ids = raw_ids[0]  # first sequence in batch
+
+            # Find where caption appears in the full sequence
+            start = find_subsequence(full_ids, cap_ids)
+            if start is None:
+                # If we can't find the caption tokens, skip supervision for this example
+                # (you could log here if you want)
+                continue
+
+            end = start + len(cap_ids)
+
+            # Enable supervision only on the caption token span
+            labels[i, start:end] = input_ids[i, start:end]
+
+        enc["labels"] = labels
+        enc["attention_mask"] = attention_mask
+
+        return enc
 
 
 def run_lora_training(cfg: Dict[str, Any]):
@@ -121,7 +185,6 @@ def run_lora_training(cfg: Dict[str, Any]):
         bf16=train_cfg.get("bf16", False),
         remove_unused_columns=False,  # crucial for vision inputs
         report_to=["wandb"] if cfg.get("wandb", {}).get("enabled", False) and not USE_MOCK else [],
-
     )
 
     trainer = Trainer(

@@ -1,6 +1,9 @@
 from typing import Dict, Any, Optional
+
+from PIL import Image
 import torch
 from transformers import Qwen3VLForConditionalGeneration, AutoProcessor
+
 
 class Qwen3VLLoader:
     """
@@ -45,7 +48,7 @@ class Qwen3VLLoader:
             revision=revision,
             cache_dir=cache_dir,
             torch_dtype=torch_dtype,
-            device_map=device,           # "auto" or explicit device
+            device_map=device,           # "cuda", "auto", etc.
             low_cpu_mem_usage=True,
             trust_remote_code=True,
         )
@@ -58,37 +61,74 @@ class Qwen3VLLoader:
         Generate a caption for a PIL image.
 
         Args:
-          image: PIL.Image or raw image data accepted by processor
+          image: PIL.Image or array-like image data accepted by the processor
           prompt_override: optional override of prompt template
 
         Returns:
           String caption output.
         """
-        prompt = prompt_override or self.generation_cfg.get(
+
+        # Ensure we have a PIL.Image
+        if not isinstance(image, Image.Image):
+            image = Image.fromarray(image)
+
+        user_text = prompt_override or self.generation_cfg.get(
             "prompt_template",
-            "<image>\nDescribe this image."
+            "Describe this image in one concise, informative sentence.",
         )
 
-        # Compose the multimodal input
-        inputs = self.processor(
-            text=prompt,
-            images=image,
-            return_tensors="pt"
-        ).to(self.model.device)
+        # Qwen3-VL expects a chat-style message with an explicit image placeholder.
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": user_text},
+                ],
+            }
+        ]
 
-        # Generate
-        output_ids = self.model.generate(
-            **inputs,
-            max_new_tokens=self.generation_cfg.get("max_new_tokens", 64),
-            temperature=self.generation_cfg.get("temperature", 0.7),
-            top_p=self.generation_cfg.get("top_p", 0.9),
-            num_beams=self.generation_cfg.get("num_beams", 1),
+        # Turn the chat into a text string with the proper <image> tokens.
+        text = self.processor.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
         )
 
-        # Decode output
+        # Encode text + image together.
+        proc_inputs = self.processor(
+            text=[text],
+            images=[image],
+            return_tensors="pt",
+        )
+
+        # Move tensors to the model device.
+        inputs = {
+            k: v.to(self.model.device) if isinstance(v, torch.Tensor) else v
+            for k, v in proc_inputs.items()
+        }
+
+        max_new_tokens = self.generation_cfg.get("max_new_tokens", 64)
+        temperature = self.generation_cfg.get("temperature", 0.7)
+        top_p = self.generation_cfg.get("top_p", 0.9)
+        num_beams = self.generation_cfg.get("num_beams", 1)
+
+        with torch.no_grad():
+            generated_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                num_beams=num_beams,
+            )
+
+        # Skip the prompt tokens when decoding.
+        input_length = inputs["input_ids"].shape[-1]
+        new_tokens = generated_ids[:, input_length:]
+
         decoded = self.processor.batch_decode(
-            output_ids, skip_special_tokens=True
+            new_tokens,
+            skip_special_tokens=True,
         )
 
-        # Since batch size = 1, return first output
-        return decoded[0]
+        return decoded[0].strip()
