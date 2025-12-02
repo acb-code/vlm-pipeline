@@ -1,5 +1,7 @@
 wandb/
 outputs/
+!outputs/final_eval/
+!outputs/final_eval/captions_grid.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
