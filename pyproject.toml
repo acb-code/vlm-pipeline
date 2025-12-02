@@ -29,6 +29,7 @@ dependencies = [
     "numpy>=1.26.0",
     "hf-transfer>=0.1.9",
     "torchvision>=0.24.1",
+    "matplotlib>=3.10.7",
 ]
 
 [tool.uv]

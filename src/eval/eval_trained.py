@@ -1,8 +1,9 @@
 import json
-import os
 from pathlib import Path
+
 from datasets import Dataset
 from evaluate import load as load_metric
+from tqdm import tqdm
 
 from src.data.flickr8k import load_flickr8k
 from src.models.qwen_vl_loader import Qwen3VLLoader
@@ -43,7 +44,7 @@ def evaluate_lora_checkpoint(
     Path(metrics_path).parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_jsonl, "w", encoding="utf-8") as out_f:
-        for ex in ds_val:
+        for ex in tqdm(ds_val, desc="Evaluating finetuned model"):
             image = ex["image"]
             refs = [
                 ex["caption_0"],

@@ -7,12 +7,13 @@ Run:
 """
 
 import yaml
+import os
 from src.utils.paths import get_config_path
 from src.data.flickr8k import load_flickr8k
 
 
 # ====== Toggle between real and mock models ======
-USE_MOCK = False  # <---- Change this to False ONLY on a GPU machine
+USE_MOCK = os.environ.get("USE_MOCK", "True").lower() == "true"
 # ==================================================
 
 if USE_MOCK:
